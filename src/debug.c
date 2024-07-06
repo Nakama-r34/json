@@ -2,34 +2,33 @@
 
 #include "debug.h"
 
-void print_token(Token *token) {
+void print_token(token *token) {
     printf("=== Token %d ===\n", token->type);
-    printf("Token contnet %s\n", token->content.content);
-    printf("Token length %d\n", token->content.length);
-    printf("Token line %d\n", token->line);    
+    printf("Token contnet %s\n", token->content.str);
+    printf("Token length %ld\n", token->content.size);
 }
 
 void print_all_tokens(string file) {
-    init_scanner(file);
+    scanner *state = scanner_create(file);
     for(;;) {
-        Token *token = scanner();
-        if(token->type == TOKEN_EOF) return;
-        print_token(token);
+        token *tkn = scanner_next_token(state);
+        if(tkn->type == TOKEN_EOF) return;
+        print_token(tkn);
     }
 }
 
-void print_hash_table_item(hash_table_item *item) {
+void print_json_obj_item(json_obj_item *item) {
     printf("=> Item <=\n");
     if(item == NULL) {
         printf("-> Is NULL!\n");
     } else {
-        printf("-> Key: %s\n", item->key.content);
+        printf("-> Key: %s\n", item->key.str);
         printf("-> Ptr Adress: %p\n", item);
         printf("-> Next Adress: %p\n", item->next);
     }
 }
 
-void print_hash_table(hash_table *table) {
+void print_json_obj(json_obj *table) {
     printf("=== Table ===\n");
     for(u32 i = 0; i < table->size; i++) {
         printf("At index %d: \n", i);
@@ -37,11 +36,11 @@ void print_hash_table(hash_table *table) {
             printf("Nothing!\n");
             continue;
         }
-        print_hash_table_item(table->array[i]);
-        hash_table_item *current = table->array[i];
+        print_json_obj_item(table->array[i]);
+        json_obj_item *current = table->array[i];
         while(current->next != NULL) {
             current = current->next;
-            print_hash_table_item(current);
+            print_json_obj_item(current);
         }
     }
 }
