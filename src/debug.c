@@ -6,15 +6,17 @@ void print_token(token *token) {
     printf("=== Token %d ===\n", token->type);
     printf("Token contnet %s\n", token->content.str);
     printf("Token length %ld\n", token->content.size);
+    free(token);
 }
 
 void print_all_tokens(string file) {
     scanner *state = scanner_create(file);
     for(;;) {
         token *tkn = scanner_next_token(state);
-        if(tkn->type == TOKEN_EOF) return;
+        if(tkn->type == TOKEN_EOF) free(tkn); break;
         print_token(tkn);
     }
+    free(state);
 }
 
 void print_json_obj_item(json_obj_item *item) {

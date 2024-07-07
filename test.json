@@ -1,3 +1,22 @@
 {
-    "key": "value"
+    "dumb": "Its really dumb",
+    "objects": {
+        "yeah": "thats dumb",
+        "even objects in array": [
+            {
+                "like": "really dumb",
+                "yeah": "thats getting dumb"
+            },
+            {
+                "num": 420.000000,
+                "but": "no namie"
+            }
+        ]
+    },
+    "types": [
+        "round",
+        "squared",
+        6.000000
+    ],
+    "numbers": 69.000000
 }

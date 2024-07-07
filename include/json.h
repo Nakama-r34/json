@@ -73,7 +73,7 @@ struct json_value{
 
 // NOTE(nakama): json read functions
 json_value_type json_get_value_type(json_value *value);
-json_obj *json_convert_file(string file);
+json_obj *json_read_buffer(string file);
 json_value *json_get_value(string key, json_obj *obj);
 
 // NOTE(nakama): json write functions
@@ -81,7 +81,9 @@ json_obj *json_obj_create(u64 size);
 b8 json_obj_add(string key, json_value *value, json_obj *obj);
 
 json_array *json_array_create(u64 size);
-void json_array_append(json_value *value);
+void json_array_add(json_array *array, json_value *value);
+
+void json_write_file(string path, json_obj *obj);
 
 // NOTE(nakama): json free
 b8 json_obj_free(json_obj *obj);

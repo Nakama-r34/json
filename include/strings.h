@@ -6,7 +6,7 @@
 
 #include "types.h"
 
-#define str_lit(s) string_create(s, strlen(s)-1)
+#define str_lit(s) string_create(s, strlen(s))
 
 typedef struct {
     s8 *str;

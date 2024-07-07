@@ -66,18 +66,19 @@ token *scanner_next_token(scanner *state) {
             case ' ': state->length--; break;
             case '\t': state->length--; break;
             case '\n': state->length--; state->line++; break;
-            case '{': return token_create(TOKEN_LEFT_BRACE, state);
-            case '}': return token_create(TOKEN_RIGHT_BRACE, state);
-            case '[': return token_create(TOKEN_LEFT_BRACKET, state);
-            case ']': return token_create(TOKEN_RIGHT_BRACKET, state);
-            case ':': return token_create(TOKEN_COLON, state);
-            case ',': return token_create(TOKEN_COMMA, state);
-            case '"': return token_create_string(state);
-            case '\0': return token_create(TOKEN_EOF, state);
+            case '{': return token_create(TOKEN_LEFT_BRACE, state); break;
+            case '}': return token_create(TOKEN_RIGHT_BRACE, state); break;
+            case '[': return token_create(TOKEN_LEFT_BRACKET, state); break;
+            case ']': return token_create(TOKEN_RIGHT_BRACKET, state); break;
+            case ':': return token_create(TOKEN_COLON, state); break;
+            case ',': return token_create(TOKEN_COMMA, state); break;
+            case '"': return token_create_string(state); break;
+            case '\0': return token_create(TOKEN_EOF, state); break;
             default: {
                 fprintf(stderr, "Error tokenizing %.*s on line %ld.\n", state->length, 
                         state->source.str, state->line);
                 exit(1);
+                break;
             };
         }
     }
@@ -86,12 +87,20 @@ token *scanner_next_token(scanner *state) {
 //////////////////////////////////////////
 // NOTE(nakama): creat functions
 
-static json_value *json_value_create() {
+json_value *json_value_create(void *val, json_value_type type) {
     json_value *value = malloc(sizeof(json_value));
+    switch (type) {
+        case JSON_STRING: value->value.str = *(string*)val; break;
+        case JSON_NUM: value->value.num = *(double*)val; break;
+        case JSON_ARRAY: value->value.array = (json_array*)val; break;
+        case JSON_OBJ: value->value.obj = (json_obj*)val; break;
+        default: fprintf(stderr, "Error: Value doesnt have a type\n"); exit(1);
+    }
+    value->type = type;
     return value;
 }
 
-json_obj_item *json_obj_item_create(string key, json_value *value) {
+static json_obj_item *json_obj_item_create(string key, json_value *value) {
     json_obj_item *item = malloc(sizeof(json_obj_item));
     item->key = key;
     item->value = value;
@@ -133,7 +142,7 @@ static u64 indexer(u64 hash, u64 size) {
 }
 
 // TODO(nakama): split into linked list part, and rest
-b8 json_obj_item_find(json_obj_item **return_item, string key, json_obj *obj) {
+static b8 json_obj_item_find(json_obj_item **return_item, string key, json_obj *obj) {
     *return_item = NULL;
     u64 hash_value = hash(key);
     u64 index_value = indexer(hash_value, obj->size);
@@ -165,7 +174,7 @@ b8 json_obj_item_find(json_obj_item **return_item, string key, json_obj *obj) {
 }
 
 // TODO(nakama): try to solve pointer mess
-b8 json_obj_item_add(json_obj_item *item, json_obj *table) {
+static b8 json_obj_item_add(json_obj_item *item, json_obj *table) {
     json_obj_item **previous_item_ptr = malloc(sizeof(json_obj_item*));
     json_obj_item *previous_item = NULL;
 
@@ -203,7 +212,7 @@ void json_array_add(json_array *array, json_value *value) {
 
 ////////////////////////////////////////////////////////////////////////////7
 
-json_obj_item *json_obj_get_item(string key, json_obj *table) {
+static json_obj_item *json_obj_get_item(string key, json_obj *table) {
     json_obj_item **item = malloc(sizeof(json_obj_item*));
     json_obj_item_find(item, key, table);
     return *item;
@@ -212,9 +221,9 @@ json_obj_item *json_obj_get_item(string key, json_obj *table) {
 json_value *json_get_value(string key, json_obj *obj) {
     return json_obj_get_item(key, obj)->value;
 }
-void json_value_free(json_value *value);
+static void json_value_free(json_value *value);
 
-void json_obj_item_free(json_obj_item *item) {
+static void json_obj_item_free(json_obj_item *item) {
     free(item->key.str);
     json_value_free(item->value);
     free(item);
@@ -240,22 +249,22 @@ b8 json_obj_free(json_obj *table) {
     return 0;
 }
 
-void json_array_free(json_array *array) {
+static void json_array_free(json_array *array) {
     for(u64 i = 0; i < array->count; i++) {
         json_value_free(array->value[i]);
-    }
+    } 
     free(array->value);
     free(array);
 }
 
-void json_value_free(json_value *value) {
+static void json_value_free(json_value *value) {
     if(value->type == JSON_STRING) {
         free(value->value.str.str);
     }
-    if(value->type == JSON_ARRAY) {
+    else if(value->type == JSON_ARRAY) {
         json_array_free(value->value.array);
     }
-    if(value->type == JSON_OBJ) {
+    else if(value->type == JSON_OBJ) {
         json_obj_free(value->value.obj);
     }
     free(value);
@@ -263,14 +272,14 @@ void json_value_free(json_value *value) {
 
 /////////////////////////////////////////////////////////////
 
-void next_token(json_state *state, scanner *st) {
+static void next_token(json_state *state, scanner *st) {
     free(state->tkn);
     state->tkn = scanner_next_token(st);
 }
 
-json_value *json_value_get(scanner *state, json_state *tkn, u64 size);
+static json_value *json_value_get(scanner *state, json_state *tkn, u64 size);
 
-json_array *json_array_get(scanner *state, json_state *tkn, u64 size) {
+static json_array *json_array_get(scanner *state, json_state *tkn, u64 size) {
     json_array *array = json_array_create(size);
     while(tkn->tkn->type != TOKEN_RIGHT_BRACKET) {
         json_value *value = json_value_get(state, tkn, size);
@@ -280,11 +289,11 @@ json_array *json_array_get(scanner *state, json_state *tkn, u64 size) {
         json_array_add(array, value);
         if(tkn->tkn->type == TOKEN_RIGHT_BRACKET) break;
     }
-    printf("Array end <=\n");
     next_token(tkn, state);
+    return array;
 }
 
-json_obj *json_obj_get(scanner *state, json_state *tkn, u64 size) {
+static json_obj *json_obj_get(scanner *state, json_state *tkn, u64 size) {
     json_obj *table = json_obj_create(size);
     while(tkn->tkn->type != TOKEN_RIGHT_BRACE) {
         string key;
@@ -293,7 +302,6 @@ json_obj *json_obj_get(scanner *state, json_state *tkn, u64 size) {
             strncpy(chr, tkn->tkn->content.str+1, tkn->tkn->content.size-2);
             chr[tkn->tkn->content.size-2] = 0; 
             key = str_lit(chr);
-            printf("\nKey: %s\n", key.str);
             next_token(tkn, state);
         } else { printf("No key!\n"); exit(1); }
         if(tkn->tkn->type == TOKEN_COLON) {
@@ -306,56 +314,53 @@ json_obj *json_obj_get(scanner *state, json_state *tkn, u64 size) {
         json_obj_add(key, value, table);
         if(tkn->tkn->type == TOKEN_RIGHT_BRACE) break;
     }
-    printf("Object end <=\n");
+    if(tkn->tkn->type == TOKEN_EOF) {
+        return table;
+    }
     next_token(tkn, state);
     return table;
 }
 
 
 // TODO: use case instead of if
-json_value *json_value_get(scanner *state, json_state *tkn, u64 size) {
-    json_value *value = malloc(sizeof(json_value));
+static json_value *json_value_get(scanner *state, json_state *tkn, u64 size) {
+    json_value *value;
     if(tkn->tkn->type == TOKEN_STRING) {
         char *chr = malloc((tkn->tkn->content.size-1) * sizeof(char));
         strncpy(chr, tkn->tkn->content.str+1, tkn->tkn->content.size-2);
         chr[tkn->tkn->content.size-2] = 0; 
-        value->value.str = str_lit(chr);
-        printf("Value: %s\n", value->value.str.str);
-        value->type = JSON_STRING;
+        string val = str_lit(chr);
+        value = json_value_create(&val, JSON_STRING);
         next_token(tkn, state);
     } else if (tkn->tkn->type == TOKEN_NUMBER) {
-        value->value.num = strtod(tkn->tkn->content.str, NULL);
-        printf("Value: %f\n", value->value.num);
+        f32 num = strtod(tkn->tkn->content.str, NULL);
+        value = json_value_create(&num, JSON_NUM);
         next_token(tkn, state);
-        value->type = JSON_NUM;
     } else if (tkn->tkn->type == TOKEN_LEFT_BRACKET) {
-        printf("Value: Array =>\n");
         next_token(tkn, state);
-        value->value.array = json_array_get(state, tkn, size);
-        value->type = JSON_ARRAY;
+        json_array *array = json_array_get(state, tkn, size);
+        value = json_value_create(array, JSON_ARRAY);
     } else if (tkn->tkn->type == TOKEN_LEFT_BRACE) {
-        printf("Value: Object =>\n");
         next_token(tkn, state);
-        value->value.obj = json_obj_get(state, tkn, size);
-        value->type = JSON_OBJ;
+        json_obj *obj = json_obj_get(state, tkn, size);
+        value = json_value_create(obj, JSON_OBJ);
     }
     return value;
 }
 
-json_state *json_state_create() {
+static json_state *json_state_create() {
     json_state *state = malloc(sizeof(json_state));
     state->tkn = NULL;
     return state;
 }
 
-json_obj *json_convert_file(string file) {
+json_obj *json_read_buffer(string file) {
     json_obj *obj = NULL;
     scanner *state = NULL;
     json_state *tkn = json_state_create();
     state = scanner_create(file);
     next_token(tkn, state); 
     if(tkn->tkn->type == TOKEN_LEFT_BRACE) {
-        printf("Value: Object =>\n");
         next_token(tkn, state);
         obj = json_obj_get(state, tkn, 16);
     } else { printf("Invalid Json!\n"); }
@@ -364,5 +369,63 @@ json_obj *json_convert_file(string file) {
     free(tkn);
     free(state);
     return obj;
+}
+
+/////////////////////////////////////////////////
+
+void json_value_write(FILE *fd, json_value *value);
+
+void json_obj_item_write(FILE *fd, json_obj_item *item) {
+    fprintf(fd, "\"%s\": ", item->key.str);
+    json_value_write(fd, item->value);
+}
+
+void json_obj_write(FILE *fd, json_obj *obj) {
+    fprintf(fd, "{\n");
+    u32 count = 0;
+    for(u32 i = 0; i < obj->size; i++) {
+        json_obj_item *current = obj->array[i];
+        if(!obj->array[i]) {
+            continue;
+        }
+        if(count >= 1) {
+            fprintf(fd, ",\n");
+        }
+        while(current->next != NULL) {
+            json_obj_item *prev = current;
+            current = current->next;
+            count++;
+            json_obj_item_write(fd, prev);
+        }
+        json_obj_item_write(fd, current);
+        count++;
+    }
+    fprintf(fd, "}\n");
+}
+
+void json_array_write(FILE *fd, json_array *array) {
+    fprintf(fd, "[\n");
+    for(u64 i = 0; i < array->count; i++) {
+        json_value_write(fd, array->value[i]);
+        if(i != array->count-1){
+            fprintf(fd, ",");
+        }
+    }
+    fprintf(fd, "]\n");
+}
+void json_value_write(FILE *fd, json_value *value) {
+    switch (value->type) {
+        case JSON_STRING: fprintf(fd, "\"%s\"", value->value.str.str); break;
+        case JSON_NUM: fprintf(fd, "%f", value->value.num); break;
+        case JSON_ARRAY: json_array_write(fd, value->value.array); break;
+        case JSON_OBJ: json_obj_write(fd, value->value.obj); break;
+        default: fprintf(stderr, "No valid type\n"); break;
+    }
+}
+
+void json_write_file(string path, json_obj *obj) {
+    FILE *fd = fopen(path.str, "wb");
+    json_obj_write(fd, obj);
+    fclose(fd);
 }
 

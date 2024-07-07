@@ -1,7 +1,7 @@
 #include "../include/base.h"
 
 
-string string_create(char* c_string, u64 size) {
+string string_create(s8* c_string, u64 size) {
     string output = {
         .str = c_string,
         .size = size
@@ -29,7 +29,6 @@ string string_get_file(string path) {
             exit(EXIT_FAILURE);
         }
     } else {
-        fclose(fd);
         fprintf(stderr, "Error reading file %s\n", path.str);
         exit(EXIT_FAILURE);
     }
@@ -38,7 +37,7 @@ string string_get_file(string path) {
 }
 
 b8 is_num(u8 chr) {
-    if(chr >= '0' && chr <= '9') {
+    if(chr >= '0' && chr <= '9' || chr == '.') {
         return true;
     } else {
         return false;

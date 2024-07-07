@@ -6,9 +6,11 @@
 
 int main(int argc, char* argv[]) {
     clock_t start = clock();
-    string file = string_get_file(str_lit("test2.json"));
-    json_obj *obj = json_convert_file(file);
+    string file = string_get_file(str_lit("test.json"));
+    print_all_tokens(file);
+    json_obj *obj = json_read_buffer(file);
     print_json_obj(obj);
+    json_write_file(str_lit("json.json"), obj);
 
     json_obj_free(obj);
     clock_t end = clock();
