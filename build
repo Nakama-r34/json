@@ -1,0 +1,3 @@
+#! /bin/bash
+echo "Buidling Programm...";
+gcc -o foo foo.c src/json.c src/strings.c src/debug.c

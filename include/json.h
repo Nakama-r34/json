@@ -2,7 +2,6 @@
 #define json_h
 
 #include "base.h"
-#include "debug.h"
 
 ////////////////////////////////////////////
 // NOTE(nakama): scanner strcuts / enums
@@ -85,6 +84,6 @@ json_array *json_array_create(u64 size);
 void json_array_append(json_value *value);
 
 // NOTE(nakama): json free
-void json_free(json_obj *obj);
+b8 json_obj_free(json_obj *obj);
 
 #endif

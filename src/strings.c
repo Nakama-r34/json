@@ -1,4 +1,5 @@
-#include "strings.h"
+#include "../include/base.h"
+
 
 string string_create(char* c_string, u64 size) {
     string output = {
@@ -10,27 +11,30 @@ string string_create(char* c_string, u64 size) {
 
 string string_get_file(string path) {
     FILE *fd = fopen(path.str, "r");
-    u8 *buffer = NULL;
+    s8 *buffer = NULL;
     u64 size = 0;
+    string ret_val = str_lit("0");
 
-    if(fd == NULL) {
+    if(fd) {
+        fseek(fd, 0, SEEK_END);
+        size = ftell(fd) + 1;
+        fseek(fd, 0, SEEK_SET);
+        buffer = calloc(sizeof(s8), size);
+        if(buffer) {
+            fread(buffer, sizeof(s8), size, fd);
+            ret_val = str_lit(buffer);
+        } else {
+            fclose(fd);
+            fprintf(stderr, "Couldn't create file buffer");
+            exit(EXIT_FAILURE);
+        }
+    } else {
+        fclose(fd);
         fprintf(stderr, "Error reading file %s\n", path.str);
         exit(EXIT_FAILURE);
     }
-
-    fseek(fd, 0, SEEK_END);
-    size = ftell(fd) + 1;
-    fseek(fd, 0, SEEK_SET);
-    buffer = malloc(size * sizeof(u8));
-
-    if(buffer == NULL) {
-        fprintf(stderr, "Couldn't create file buffer");
-        exit(EXIT_FAILURE);
-    }
-
-    fread(buffer, size, 1, fd);
-
-    return str_lit(buffer);
+    fclose(fd);
+    return ret_val;
 }
 
 b8 is_num(u8 chr) {

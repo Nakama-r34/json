@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "debug.h"
+#include "../include/debug.h"
 
 void print_token(token *token) {
     printf("=== Token %d ===\n", token->type);

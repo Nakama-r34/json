@@ -1,5 +1,5 @@
-#include "json.h"
-#include "base.h"
+#include "../include/json.h"
+#include "../include/debug.h"
 
 
 scanner *scanner_create(string file) {
@@ -59,7 +59,8 @@ static token *token_create_number(scanner *state) {
 
 token *scanner_next_token(scanner *state) {
     for(;;) {
-        u8 c = next(state);
+        u8 c = '0';
+        c = next(state);
         if(is_num(c)) { return token_create_number(state); }
         switch (c) {
             case ' ': state->length--; break;
@@ -83,6 +84,12 @@ token *scanner_next_token(scanner *state) {
 }
 
 //////////////////////////////////////////
+// NOTE(nakama): creat functions
+
+static json_value *json_value_create() {
+    json_value *value = malloc(sizeof(json_value));
+    return value;
+}
 
 json_obj_item *json_obj_item_create(string key, json_value *value) {
     json_obj_item *item = malloc(sizeof(json_obj_item));
@@ -94,7 +101,7 @@ json_obj_item *json_obj_item_create(string key, json_value *value) {
 
 json_obj *json_obj_create(u64 size) {
     json_obj *obj = malloc(sizeof(json_obj));
-    obj->array = malloc(size * sizeof(json_obj_item));
+    obj->array = malloc(size * sizeof(json_obj_item*));
     for(u32 i = 0; i < size; i++) {
         obj->array[i] = NULL;
     } 
@@ -106,11 +113,11 @@ json_array *json_array_create(u64 size) {
     json_array *array = malloc(sizeof(json_array));
     array->count = 0;
     array->capacity = size;
-    array->value = malloc(size * sizeof(json_value));
+    array->value = malloc(size * sizeof(json_value*));
     return array;
 }
 
-json_value *json_value_create();
+//////////////////////////////////////////////////////////
 
 static u64 hash(string key) {
     if(key.size == 1) {
@@ -121,7 +128,7 @@ static u64 hash(string key) {
     }
 }
 
-static u64 index(u64 hash, u64 size) {
+static u64 indexer(u64 hash, u64 size) {
     return (hash % size);
 }
 
@@ -129,7 +136,7 @@ static u64 index(u64 hash, u64 size) {
 b8 json_obj_item_find(json_obj_item **return_item, string key, json_obj *obj) {
     *return_item = NULL;
     u64 hash_value = hash(key);
-    u64 index_value = index(hash_value, obj->size);
+    u64 index_value = indexer(hash_value, obj->size);
     json_obj_item *current_item = obj->array[index_value];
 
     if(!current_item) {
@@ -163,7 +170,7 @@ b8 json_obj_item_add(json_obj_item *item, json_obj *table) {
     json_obj_item *previous_item = NULL;
 
     u64 hash_val = hash(item->key);
-    u64 i = index(hash_val, table->size);
+    u64 i = indexer(hash_val, table->size);
     b8 has_item = json_obj_item_find(previous_item_ptr, item->key, table);
 
     previous_item = *previous_item_ptr;
@@ -178,45 +185,11 @@ b8 json_obj_item_add(json_obj_item *item, json_obj *table) {
     }
 }
 
-// TODO(nakama): split into obj_free, item_free and add array_free
-b8 json_obj_free(json_obj *table) {
-    for(u32 i = 0; i < table->size; i++) {
-        json_obj_item *current = table->array[i];
-        if(!table->array[i]) {
-            continue;
-        }
-        while(current->next != NULL) {
-            json_obj_item *prev = current;
-            current = current->next;
-            free(prev);
-        }
-        free(current);
-    }
-
-    free(table->array);
-    return 0;
-}
-
 b8 json_obj_add(string key, json_value *value, json_obj *table) {
     json_obj_item *item = json_obj_item_create(key, value);
     json_obj_item_add(item, table);
     return true;
 }
-
-void *json_obj_get_value(string key, json_obj *table) {
-    json_obj_item **item = malloc(sizeof(json_obj_item*));
-    json_obj_item_find(item, key, table);
-    void * return_val = (*item)->value;
-    free(item);
-    return return_val;
-}
-
-void json_array_free(json_array *array) {
-    free(array->value);
-    free(array);
-}
-
-
 
 void json_array_add(json_array *array, json_value *value) {
     if(array->count+1 < array->capacity) {
@@ -228,6 +201,73 @@ void json_array_add(json_array *array, json_value *value) {
     array->count++;
 }
 
+////////////////////////////////////////////////////////////////////////////7
+
+json_obj_item *json_obj_get_item(string key, json_obj *table) {
+    json_obj_item **item = malloc(sizeof(json_obj_item*));
+    json_obj_item_find(item, key, table);
+    return *item;
+}
+
+json_value *json_get_value(string key, json_obj *obj) {
+    return json_obj_get_item(key, obj)->value;
+}
+void json_value_free(json_value *value);
+
+void json_obj_item_free(json_obj_item *item) {
+    free(item->key.str);
+    json_value_free(item->value);
+    free(item);
+}
+
+// TODO(nakama): split into obj_free, item_free and add array_free
+b8 json_obj_free(json_obj *table) {
+    for(u32 i = 0; i < table->size; i++) {
+        json_obj_item *current = table->array[i];
+        if(!table->array[i]) {
+            continue;
+        }
+        while(current->next != NULL) {
+            json_obj_item *prev = current;
+            current = current->next;
+            json_obj_item_free(prev);
+        }
+        json_obj_item_free(current);
+    }
+
+    free(table->array);
+    free(table);
+    return 0;
+}
+
+void json_array_free(json_array *array) {
+    for(u64 i = 0; i < array->count; i++) {
+        json_value_free(array->value[i]);
+    }
+    free(array->value);
+    free(array);
+}
+
+void json_value_free(json_value *value) {
+    if(value->type == JSON_STRING) {
+        free(value->value.str.str);
+    }
+    if(value->type == JSON_ARRAY) {
+        json_array_free(value->value.array);
+    }
+    if(value->type == JSON_OBJ) {
+        json_obj_free(value->value.obj);
+    }
+    free(value);
+}
+
+/////////////////////////////////////////////////////////////
+
+void next_token(json_state *state, scanner *st) {
+    free(state->tkn);
+    state->tkn = scanner_next_token(st);
+}
+
 json_value *json_value_get(scanner *state, json_state *tkn, u64 size);
 
 json_array *json_array_get(scanner *state, json_state *tkn, u64 size) {
@@ -235,13 +275,13 @@ json_array *json_array_get(scanner *state, json_state *tkn, u64 size) {
     while(tkn->tkn->type != TOKEN_RIGHT_BRACKET) {
         json_value *value = json_value_get(state, tkn, size);
         if(tkn->tkn->type == TOKEN_COMMA) {
-            tkn->tkn = scanner_next_token(state);
+            next_token(tkn, state);
         }
         json_array_add(array, value);
         if(tkn->tkn->type == TOKEN_RIGHT_BRACKET) break;
     }
     printf("Array end <=\n");
-    tkn->tkn = scanner_next_token(state);
+    next_token(tkn, state);
 }
 
 json_obj *json_obj_get(scanner *state, json_state *tkn, u64 size) {
@@ -249,22 +289,25 @@ json_obj *json_obj_get(scanner *state, json_state *tkn, u64 size) {
     while(tkn->tkn->type != TOKEN_RIGHT_BRACE) {
         string key;
         if(tkn->tkn->type == TOKEN_STRING) {
-            key = tkn->tkn->content;
+            char *chr = malloc((tkn->tkn->content.size-1) * sizeof(char));
+            strncpy(chr, tkn->tkn->content.str+1, tkn->tkn->content.size-2);
+            chr[tkn->tkn->content.size-2] = 0; 
+            key = str_lit(chr);
             printf("\nKey: %s\n", key.str);
-            tkn->tkn = scanner_next_token(state);
+            next_token(tkn, state);
         } else { printf("No key!\n"); exit(1); }
         if(tkn->tkn->type == TOKEN_COLON) {
-            tkn->tkn = scanner_next_token(state);
+            next_token(tkn, state);
         }
         json_value *value = json_value_get(state, tkn, size);
         if(tkn->tkn->type == TOKEN_COMMA) {
-            tkn->tkn = scanner_next_token(state);
+            next_token(tkn, state);
         }
         json_obj_add(key, value, table);
         if(tkn->tkn->type == TOKEN_RIGHT_BRACE) break;
     }
     printf("Object end <=\n");
-    tkn->tkn = scanner_next_token(state);
+    next_token(tkn, state);
     return table;
 }
 
@@ -273,43 +316,53 @@ json_obj *json_obj_get(scanner *state, json_state *tkn, u64 size) {
 json_value *json_value_get(scanner *state, json_state *tkn, u64 size) {
     json_value *value = malloc(sizeof(json_value));
     if(tkn->tkn->type == TOKEN_STRING) {
-        value->value.str = tkn->tkn->content;
-        printf("Value: %s\n", value->value.str);
+        char *chr = malloc((tkn->tkn->content.size-1) * sizeof(char));
+        strncpy(chr, tkn->tkn->content.str+1, tkn->tkn->content.size-2);
+        chr[tkn->tkn->content.size-2] = 0; 
+        value->value.str = str_lit(chr);
+        printf("Value: %s\n", value->value.str.str);
         value->type = JSON_STRING;
-        tkn->tkn = scanner_next_token(state);
+        next_token(tkn, state);
     } else if (tkn->tkn->type == TOKEN_NUMBER) {
         value->value.num = strtod(tkn->tkn->content.str, NULL);
         printf("Value: %f\n", value->value.num);
-        tkn->tkn = scanner_next_token(state);
+        next_token(tkn, state);
         value->type = JSON_NUM;
     } else if (tkn->tkn->type == TOKEN_LEFT_BRACKET) {
         printf("Value: Array =>\n");
-        tkn->tkn = scanner_next_token(state);
+        next_token(tkn, state);
         value->value.array = json_array_get(state, tkn, size);
         value->type = JSON_ARRAY;
     } else if (tkn->tkn->type == TOKEN_LEFT_BRACE) {
         printf("Value: Object =>\n");
-        tkn->tkn = scanner_next_token(state);
+        next_token(tkn, state);
         value->value.obj = json_obj_get(state, tkn, size);
         value->type = JSON_OBJ;
     }
     return value;
 }
 
+json_state *json_state_create() {
+    json_state *state = malloc(sizeof(json_state));
+    state->tkn = NULL;
+    return state;
+}
+
 json_obj *json_convert_file(string file) {
-    json_obj *obj;
-    scanner *state;
-    json_state *tkn;
+    json_obj *obj = NULL;
+    scanner *state = NULL;
+    json_state *tkn = json_state_create();
     state = scanner_create(file);
-    tkn->tkn = scanner_next_token(state); 
+    next_token(tkn, state); 
     if(tkn->tkn->type == TOKEN_LEFT_BRACE) {
         printf("Value: Object =>\n");
-        tkn->tkn = scanner_next_token(state);
+        next_token(tkn, state);
         obj = json_obj_get(state, tkn, 16);
     } else { printf("Invalid Json!\n"); }
+    free(file.str);
+    free(tkn->tkn);
+    free(tkn);
+    free(state);
     return obj;
 }
 
-json_value *json_get_value(string key, json_obj *obj) {
-    return json_obj_get_value(key, obj);
-}

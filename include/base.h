@@ -1,7 +1,7 @@
 #ifndef base_h
 #define base_h
 
-#include "base/strings.h"
-#include "base/types.h"
+#include "strings.h"
+#include "types.h"
 
 #endif
